@@ -7,7 +7,7 @@ class DemoScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        // Pipeline WebGL: Efeito de Bloom Cinematográfico via buffer de pixels
+        // Pipeline WebGL: Efeito de Bloom via buffer de pixels na GPU
         this.cameras.main.postFX.addBloom(0xffffff, 1, 1, 1.2, 1.5);
 
         this.player = {
@@ -25,7 +25,6 @@ class DemoScene extends Phaser.Scene {
             { geom: new Phaser.Geom.Rectangle(380, 250, 35, 35), vx: 160, vy: 140, color: 0xec4899 }
         ];
 
-        // Inicialização de Contexto Gráfico, Input e HUD Técnico
         this.graphics = this.add.graphics();
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys('W,A,S,D');
@@ -41,7 +40,7 @@ class DemoScene extends Phaser.Scene {
 
         this.isColliding = false;
     }
-    
+
     update(time, delta) {
         // Normalização temporal em segundos
         const dt = delta / 1000;
@@ -61,6 +60,9 @@ class DemoScene extends Phaser.Scene {
             moveX *= 0.7071;
             moveY *= 0.7071;
         }
+
+        this.player.geom.x += moveX * this.player.speed * dt;
+        this.player.geom.y += moveY * this.player.speed * dt;
 
         const r = this.player.geom.radius;
         this.player.geom.x = Phaser.Math.Clamp(this.player.geom.x, r, width - r);
@@ -82,8 +84,27 @@ class DemoScene extends Phaser.Scene {
             if (target.geom.x <= 0 || target.geom.x + target.geom.width >= width) target.vx *= -1;
             if (target.geom.y <= 0 || target.geom.y + target.geom.height >= height) target.vy *= -1;
 
-        this.player.geom.x += moveX * this.player.speed * dt;
-        this.player.geom.y += moveY * this.player.speed * dt;   
+            // Interseção matemática (AABB x Círculo)
+            if (Phaser.Geom.Intersects.CircleToRectangle(this.player.geom, target.geom)) {
+                currentCollision = true;
+            }
+        }
+
+        // Alteração na matriz de projeção local (Screen Shake) em resposta à colisão
+        if (currentCollision && !this.isColliding) {
+            this.cameras.main.shake(150, 0.01);
+        }
+        this.isColliding = currentCollision;
+        this.player.color = this.isColliding ? 0xf43f5e : 0x3b82f6;
+
+        this.graphics.clear();
+
+        // Oscilação de opacidade da grade de coordenadas usando tempo contínuo
+        const gridAlpha = 0.2 + Math.sin(time / 1000) * 0.1; 
+        this.graphics.lineStyle(1, 0x334155, gridAlpha);
+        for (let x = 0; x < width; x += 40) this.graphics.lineBetween(x, 0, x, height);
+        for (let y = 0; y < height; y += 40) this.graphics.lineBetween(0, y, width, y);
+
+        // 
     }
-    
 }
