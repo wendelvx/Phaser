@@ -26,7 +26,22 @@ class DemoScene extends Phaser.Scene {
             { geom: new Phaser.Geom.Rectangle(380, 250, 35, 35), vx: 160, vy: 140, color: 0xec4899 }
         ];
 
-        // 
+        // Inicialização de Contexto Gráfico, Input e HUD Técnico
+        this.graphics = this.add.graphics();
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys('W,A,S,D');
+
+        this.hudText = this.add.text(20, 20, '', {
+            fontFamily: 'monospace',
+            fontSize: '14px',
+            color: '#e2e8f0',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            padding: { x: 15, y: 15 },
+            border: '1px solid #334155'
+        });
+
+        this.isColliding = false;
+    }
     }
     
     //
