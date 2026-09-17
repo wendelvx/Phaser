@@ -1,4 +1,3 @@
-
 class DemoScene extends Phaser.Scene {
     constructor() {
         super({ key: 'DemoScene' });
@@ -42,8 +41,28 @@ class DemoScene extends Phaser.Scene {
 
         this.isColliding = false;
     }
-    }
     
-    //
-}
+    update(time, delta) {
+        // Normalização temporal em segundos
+        const dt = delta / 1000;
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
 
+        let moveX = 0;
+        let moveY = 0;
+
+        if (this.cursors.left.isDown || this.wasd.A.isDown) moveX -= 1;
+        if (this.cursors.right.isDown || this.wasd.D.isDown) moveX += 1;
+        if (this.cursors.up.isDown || this.wasd.W.isDown) moveY -= 1;
+        if (this.cursors.down.isDown || this.wasd.S.isDown) moveY += 1;
+
+        // Normalização de vetor para garantir velocidade diagonal constante
+        if (moveX !== 0 && moveY !== 0) {
+            moveX *= 0.7071;
+            moveY *= 0.7071;
+        }
+
+        this.player.geom.x += moveX * this.player.speed * dt;
+        this.player.geom.y += moveY * this.player.speed * dt;   
+    }
+}
