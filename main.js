@@ -62,7 +62,28 @@ class DemoScene extends Phaser.Scene {
             moveY *= 0.7071;
         }
 
+        const r = this.player.geom.radius;
+        this.player.geom.x = Phaser.Math.Clamp(this.player.geom.x, r, width - r);
+        this.player.geom.y = Phaser.Math.Clamp(this.player.geom.y, r, height - r);
+
+        // Registro de posições correntes para o ciclo de renderização do Trail
+        this.player.trail.push({ x: this.player.geom.x, y: this.player.geom.y });
+        if (this.player.trail.length > 15) {
+            this.player.trail.shift();
+        }
+
+        let currentCollision = false;
+
+        for (let target of this.targets) {
+            target.geom.x += target.vx * dt;
+            target.geom.y += target.vy * dt;
+
+            // Reflexão nos limites da resolução da câmera
+            if (target.geom.x <= 0 || target.geom.x + target.geom.width >= width) target.vx *= -1;
+            if (target.geom.y <= 0 || target.geom.y + target.geom.height >= height) target.vy *= -1;
+
         this.player.geom.x += moveX * this.player.speed * dt;
         this.player.geom.y += moveY * this.player.speed * dt;   
     }
+    
 }
