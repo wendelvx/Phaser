@@ -105,6 +105,50 @@ class DemoScene extends Phaser.Scene {
         for (let x = 0; x < width; x += 40) this.graphics.lineBetween(x, 0, x, height);
         for (let y = 0; y < height; y += 40) this.graphics.lineBetween(0, y, width, y);
 
-        // 
+        // Cálculo dinâmico do Canal Alpha com base no índice do histórico
+        for (let i = 0; i < this.player.trail.length; i++) {
+            const pos = this.player.trail[i];
+            const alpha = i / this.player.trail.length;
+            this.graphics.fillStyle(this.player.color, alpha * 0.4);
+            this.graphics.fillCircle(pos.x, pos.y, r * alpha);
+        }
+
+        // Pulsação das primitivas com função trigonométrica
+        const pulse = 1 + Math.sin(time / 200) * 0.05;
+        for (let target of this.targets) {
+            this.graphics.fillStyle(target.color, 0.9);
+
+            const offset = (target.geom.width * pulse - target.geom.width) / 2;
+            this.graphics.fillRect(target.geom.x - offset, target.geom.y - offset, target.geom.width * pulse, target.geom.height * pulse);
+
+            this.graphics.lineStyle(2, 0xffffff, 0.8);
+            this.graphics.strokeRect(target.geom.x - offset, target.geom.y - offset, target.geom.width * pulse, target.geom.height * pulse);
+        }
+
+        this.graphics.fillStyle(this.player.color, 1.0);
+        this.graphics.fillCircleShape(this.player.geom);
+        this.graphics.lineStyle(3, 0xffffff, 1.0);
+        this.graphics.strokeCircleShape(this.player.geom);
+
+        const fps = Math.round(this.game.loop.actualFps);
+        this.hudText.setText([
+            `[ ENGINE ]: WebGL 2.0 (Post-FX Enabled)`,
+            `[ RENDER ]: ${fps} FPS | Delta: ${dt.toFixed(3)}s`,
+            `[ MATH   ]: Alpha Blending & Sine Waves`,
+            `[ CAMERA ]: Screen Shake FX`,
+            this.isColliding ? '> ALERTA: INTERSECCAO DETECTADA' : '> STATUS: LIVRE'
+        ]);
     }
 }
+
+const config = {
+    type: Phaser.WEBGL, // Renderizador obrigatório para suportar os Shaders
+    width: 800,
+    height: 600,
+    parent: 'game-container',
+    backgroundColor: '#020617',
+    scene: [DemoScene],
+    fps: { target: 60, forceSetTimeOut: false }
+};
+
+const game = new Phaser.Game(config);
