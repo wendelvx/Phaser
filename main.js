@@ -1,4 +1,3 @@
-
 class DemoScene extends Phaser.Scene {
     constructor() {
         super({ key: 'DemoScene' });
@@ -8,7 +7,7 @@ class DemoScene extends Phaser.Scene {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
 
-        // Pipeline WebGL: Efeito de Bloom Cinematográfico via buffer de pixels
+        // Pipeline WebGL: Efeito de Bloom via buffer de pixels na GPU
         this.cameras.main.postFX.addBloom(0xffffff, 1, 1, 1.2, 1.5);
 
         this.player = {
@@ -26,9 +25,130 @@ class DemoScene extends Phaser.Scene {
             { geom: new Phaser.Geom.Rectangle(380, 250, 35, 35), vx: 160, vy: 140, color: 0xec4899 }
         ];
 
-        // 
+        this.graphics = this.add.graphics();
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys('W,A,S,D');
+
+        this.hudText = this.add.text(20, 20, '', {
+            fontFamily: 'monospace',
+            fontSize: '14px',
+            color: '#e2e8f0',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            padding: { x: 15, y: 15 },
+            border: '1px solid #334155'
+        });
+
+        this.isColliding = false;
     }
-    
-    //
+
+    update(time, delta) {
+        // Normalização temporal em segundos
+        const dt = delta / 1000;
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        let moveX = 0;
+        let moveY = 0;
+
+        if (this.cursors.left.isDown || this.wasd.A.isDown) moveX -= 1;
+        if (this.cursors.right.isDown || this.wasd.D.isDown) moveX += 1;
+        if (this.cursors.up.isDown || this.wasd.W.isDown) moveY -= 1;
+        if (this.cursors.down.isDown || this.wasd.S.isDown) moveY += 1;
+
+        // Normalização de vetor para garantir velocidade diagonal constante
+        if (moveX !== 0 && moveY !== 0) {
+            moveX *= 0.7071;
+            moveY *= 0.7071;
+        }
+
+        this.player.geom.x += moveX * this.player.speed * dt;
+        this.player.geom.y += moveY * this.player.speed * dt;
+
+        const r = this.player.geom.radius;
+        this.player.geom.x = Phaser.Math.Clamp(this.player.geom.x, r, width - r);
+        this.player.geom.y = Phaser.Math.Clamp(this.player.geom.y, r, height - r);
+
+        // Registro de posições correntes para o ciclo de renderização do Trail
+        this.player.trail.push({ x: this.player.geom.x, y: this.player.geom.y });
+        if (this.player.trail.length > 15) {
+            this.player.trail.shift();
+        }
+
+        let currentCollision = false;
+
+        for (let target of this.targets) {
+            target.geom.x += target.vx * dt;
+            target.geom.y += target.vy * dt;
+
+            // Reflexão nos limites da resolução da câmera
+            if (target.geom.x <= 0 || target.geom.x + target.geom.width >= width) target.vx *= -1;
+            if (target.geom.y <= 0 || target.geom.y + target.geom.height >= height) target.vy *= -1;
+
+            // Interseção matemática (AABB x Círculo)
+            if (Phaser.Geom.Intersects.CircleToRectangle(this.player.geom, target.geom)) {
+                currentCollision = true;
+            }
+        }
+
+        // Alteração na matriz de projeção local (Screen Shake) em resposta à colisão
+        if (currentCollision && !this.isColliding) {
+            this.cameras.main.shake(150, 0.01);
+        }
+        this.isColliding = currentCollision;
+        this.player.color = this.isColliding ? 0xf43f5e : 0x3b82f6;
+
+        this.graphics.clear();
+
+        // Oscilação de opacidade da grade de coordenadas usando tempo contínuo
+        const gridAlpha = 0.2 + Math.sin(time / 1000) * 0.1; 
+        this.graphics.lineStyle(1, 0x334155, gridAlpha);
+        for (let x = 0; x < width; x += 40) this.graphics.lineBetween(x, 0, x, height);
+        for (let y = 0; y < height; y += 40) this.graphics.lineBetween(0, y, width, y);
+
+        // Cálculo dinâmico do Canal Alpha com base no índice do histórico
+        for (let i = 0; i < this.player.trail.length; i++) {
+            const pos = this.player.trail[i];
+            const alpha = i / this.player.trail.length;
+            this.graphics.fillStyle(this.player.color, alpha * 0.4);
+            this.graphics.fillCircle(pos.x, pos.y, r * alpha);
+        }
+
+        // Pulsação das primitivas com função trigonométrica
+        const pulse = 1 + Math.sin(time / 200) * 0.05;
+        for (let target of this.targets) {
+            this.graphics.fillStyle(target.color, 0.9);
+
+            const offset = (target.geom.width * pulse - target.geom.width) / 2;
+            this.graphics.fillRect(target.geom.x - offset, target.geom.y - offset, target.geom.width * pulse, target.geom.height * pulse);
+
+            this.graphics.lineStyle(2, 0xffffff, 0.8);
+            this.graphics.strokeRect(target.geom.x - offset, target.geom.y - offset, target.geom.width * pulse, target.geom.height * pulse);
+        }
+
+        this.graphics.fillStyle(this.player.color, 1.0);
+        this.graphics.fillCircleShape(this.player.geom);
+        this.graphics.lineStyle(3, 0xffffff, 1.0);
+        this.graphics.strokeCircleShape(this.player.geom);
+
+        const fps = Math.round(this.game.loop.actualFps);
+        this.hudText.setText([
+            `[ ENGINE ]: WebGL 2.0 (Post-FX Enabled)`,
+            `[ RENDER ]: ${fps} FPS | Delta: ${dt.toFixed(3)}s`,
+            `[ MATH   ]: Alpha Blending & Sine Waves`,
+            `[ CAMERA ]: Screen Shake FX`,
+            this.isColliding ? '> ALERTA: INTERSECCAO DETECTADA' : '> STATUS: LIVRE'
+        ]);
+    }
 }
 
+const config = {
+    type: Phaser.WEBGL, // Renderizador obrigatório para suportar os Shaders
+    width: 800,
+    height: 600,
+    parent: 'game-container',
+    backgroundColor: '#020617',
+    scene: [DemoScene],
+    fps: { target: 60, forceSetTimeOut: false }
+};
+
+const game = new Phaser.Game(config);
